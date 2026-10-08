@@ -9,10 +9,14 @@ from app.models import Base
 config = context.config
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # Loggers that already exist are kept so that running migrations from
+    # inside the application or the test suite does not silence them.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = Base.metadata
-database_url = get_settings().database_url
+
+# The test suite passes its own URL here to migrate a separate test database.
+database_url = config.attributes.get("database_url", get_settings().database_url)
 
 # Tables owned by the PostGIS extension rather than by application models.
 POSTGIS_MANAGED_TABLES = frozenset({"spatial_ref_sys"})

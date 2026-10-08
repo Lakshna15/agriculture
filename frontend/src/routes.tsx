@@ -1,4 +1,6 @@
 import type { RouteObject } from 'react-router'
+import RedirectAuthenticated from './auth/RedirectAuthenticated.tsx'
+import RequireRole from './auth/RequireRole.tsx'
 import AppLayout from './components/AppLayout.tsx'
 import CustomerDashboardPage from './pages/CustomerDashboardPage.tsx'
 import FarmerDashboardPage from './pages/FarmerDashboardPage.tsx'
@@ -13,10 +15,38 @@ export const routes: RouteObject[] = [
     element: <AppLayout />,
     children: [
       { index: true, element: <HomePage /> },
-      { path: 'login', element: <LoginPage /> },
-      { path: 'register', element: <RegisterPage /> },
-      { path: 'customer', element: <CustomerDashboardPage /> },
-      { path: 'farmer', element: <FarmerDashboardPage /> },
+      {
+        path: 'login',
+        element: (
+          <RedirectAuthenticated>
+            <LoginPage />
+          </RedirectAuthenticated>
+        ),
+      },
+      {
+        path: 'register',
+        element: (
+          <RedirectAuthenticated>
+            <RegisterPage />
+          </RedirectAuthenticated>
+        ),
+      },
+      {
+        path: 'customer',
+        element: (
+          <RequireRole role="CUSTOMER">
+            <CustomerDashboardPage />
+          </RequireRole>
+        ),
+      },
+      {
+        path: 'farmer',
+        element: (
+          <RequireRole role="FARMER">
+            <FarmerDashboardPage />
+          </RequireRole>
+        ),
+      },
       { path: '*', element: <NotFoundPage /> },
     ],
   },

@@ -1,17 +1,16 @@
-import { render, screen, within } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { createMemoryRouter, RouterProvider } from 'react-router'
-import { describe, expect, it } from 'vitest'
-import { routes } from './routes.tsx'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { installFakeApi } from './test/fakeApi.ts'
+import { renderApp } from './test/renderApp.tsx'
 
-function renderRoute(path: string) {
-  const router = createMemoryRouter(routes, { initialEntries: [path] })
-  render(<RouterProvider router={router} />)
-}
+describe('public routes', () => {
+  beforeEach(() => {
+    installFakeApi()
+  })
 
-describe('application routes', () => {
   it('shows the product name and description on the homepage', () => {
-    renderRoute('/')
+    renderApp('/')
 
     expect(screen.getByRole('heading', { level: 1, name: 'Farm2Local' })).toBeInTheDocument()
     expect(
@@ -24,23 +23,16 @@ describe('application routes', () => {
   it.each([
     ['/login', 'Login'],
     ['/register', 'Register'],
-    ['/customer', 'Customer Dashboard'],
-    ['/farmer', 'Farmer Dashboard'],
+    ['/does-not-exist', 'Page not found'],
   ])('renders %s with the "%s" heading', (path, heading) => {
-    renderRoute(path)
+    renderApp(path)
 
     expect(screen.getByRole('heading', { level: 1, name: heading })).toBeInTheDocument()
   })
 
-  it('shows a not-found page for an unknown path', () => {
-    renderRoute('/does-not-exist')
-
-    expect(screen.getByRole('heading', { level: 1, name: 'Page not found' })).toBeInTheDocument()
-  })
-
   it('navigates from the homepage to login and register through the header', async () => {
     const user = userEvent.setup()
-    renderRoute('/')
+    renderApp('/')
     const accountNavigation = screen.getByRole('navigation', { name: 'Account' })
 
     await user.click(within(accountNavigation).getByRole('link', { name: 'Login' }))
