@@ -10,18 +10,13 @@ from pydantic import (
     StringConstraints,
 )
 
+from app.schemas.common import blank_to_none
+
 # The marketplace currently serves farms in the United States: 50 states plus DC.
 US_STATE_CODES = frozenset(
     "AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT "
     "NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY".split()
 )
-
-
-def _blank_to_none(value: object) -> object:
-    """Treat an empty or whitespace-only optional text field as not provided."""
-    if isinstance(value, str) and not value.strip():
-        return None
-    return value
 
 
 def _require_us_state(state_code: str) -> str:
@@ -50,7 +45,7 @@ class FarmWrite(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     farm_name: str = Field(min_length=1, max_length=120)
-    description: Annotated[str | None, BeforeValidator(_blank_to_none)] = Field(
+    description: Annotated[str | None, BeforeValidator(blank_to_none)] = Field(
         default=None, max_length=2000
     )
     address: str = Field(min_length=1, max_length=200)
@@ -59,7 +54,7 @@ class FarmWrite(BaseModel):
     zip_code: UsZipCode
     latitude: float = Field(ge=-90, le=90, allow_inf_nan=False)
     longitude: float = Field(ge=-180, le=180, allow_inf_nan=False)
-    phone: Annotated[PhoneNumber | None, BeforeValidator(_blank_to_none)] = None
+    phone: Annotated[PhoneNumber | None, BeforeValidator(blank_to_none)] = None
     pickup_available: bool = True
     delivery_available: bool = False
 

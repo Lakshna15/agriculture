@@ -2,15 +2,20 @@ import { useState, type FormEvent } from 'react'
 import { describeApiError } from '../../api/errors.ts'
 import type { Farm, FarmDetails } from '../../api/farms.ts'
 import { usStates } from '../../data/usStates.ts'
+import {
+  LATITUDE_LIMIT,
+  LONGITUDE_LIMIT,
+  latitudeErrorMessage,
+  longitudeErrorMessage,
+  parseCoordinate,
+} from '../../lib/coordinates.ts'
+import { secondaryButtonClassName } from '../buttonStyles.ts'
 import CheckboxField from '../CheckboxField.tsx'
 import FormError from '../FormError.tsx'
 import SelectField from '../SelectField.tsx'
 import SubmitButton from '../SubmitButton.tsx'
 import TextAreaField from '../TextAreaField.tsx'
 import TextField from '../TextField.tsx'
-
-const LATITUDE_LIMIT = 90
-const LONGITUDE_LIMIT = 180
 
 const stateOptions = usStates.map((state) => ({ value: state.code, label: state.name }))
 
@@ -45,12 +50,6 @@ function toFormValues(farm: Farm | null): FarmFormValues {
   }
 }
 
-function parseCoordinate(text: string, limit: number): number | null {
-  const value = Number(text)
-  const isValid = text.trim() !== '' && Number.isFinite(value) && Math.abs(value) <= limit
-  return isValid ? value : null
-}
-
 type FarmFormProps = {
   title: string
   submitLabel: string
@@ -80,14 +79,12 @@ export default function FarmForm({
 
     const latitude = parseCoordinate(values.latitude, LATITUDE_LIMIT)
     if (latitude === null) {
-      setErrorMessage(`Latitude must be a number between -${LATITUDE_LIMIT} and ${LATITUDE_LIMIT}.`)
+      setErrorMessage(latitudeErrorMessage)
       return
     }
     const longitude = parseCoordinate(values.longitude, LONGITUDE_LIMIT)
     if (longitude === null) {
-      setErrorMessage(
-        `Longitude must be a number between -${LONGITUDE_LIMIT} and ${LONGITUDE_LIMIT}.`,
-      )
+      setErrorMessage(longitudeErrorMessage)
       return
     }
 
@@ -234,7 +231,7 @@ export default function FarmForm({
             type="button"
             onClick={onCancel}
             disabled={isSubmitting}
-            className="rounded-md border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-800 shadow-sm transition-colors hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className={secondaryButtonClassName}
           >
             Cancel
           </button>

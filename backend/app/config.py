@@ -1,7 +1,8 @@
 from functools import lru_cache
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL
 
@@ -22,6 +23,19 @@ class Settings(BaseSettings):
     # HS256 needs a key of at least 256 bits to be worth its digest size.
     jwt_secret_key: SecretStr = Field(min_length=32)
     access_token_expire_minutes: int = Field(default=60, gt=0)
+
+    # Calendar dates such as a pickup day or an event day belong to the place
+    # the marketplace serves, not to the server's clock, which runs in UTC.
+    marketplace_timezone: str = "America/New_York"
+
+    @field_validator("marketplace_timezone")
+    @classmethod
+    def timezone_must_exist(cls, timezone_name: str) -> str:
+        try:
+            ZoneInfo(timezone_name)
+        except (ZoneInfoNotFoundError, ValueError) as error:
+            raise ValueError(f"unknown time zone: {timezone_name}") from error
+        return timezone_name
 
     @property
     def database_url(self) -> URL:

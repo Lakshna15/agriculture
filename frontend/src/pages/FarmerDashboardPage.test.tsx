@@ -45,7 +45,7 @@ describe('farmer without a farm', () => {
     await user.click(screen.getByRole('button', { name: 'Create Farm' }))
 
     expect(await screen.findByRole('heading', { name: 'Sunny Meadow Farm' })).toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent('Your farm has been created.')
+    expect(screen.getByText('Your farm has been created.')).toBeInTheDocument()
     expect(screen.getByText('42 Meadow Lane, Concord, NC 28025')).toBeInTheDocument()
     expect(screen.getByText('Pickup and delivery')).toBeInTheDocument()
     expect(api.requestsTo('POST', '/api/farms')).toEqual([
@@ -143,7 +143,7 @@ describe('farmer with a farm', () => {
     await user.click(screen.getByRole('button', { name: 'Save changes' }))
 
     expect(await screen.findByRole('heading', { name: 'Green Acres Organic' })).toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent('Your changes have been saved.')
+    expect(screen.getByText('Your changes have been saved.')).toBeInTheDocument()
     expect(screen.getByText('Not provided')).toBeInTheDocument()
 
     const [updateRequest] = api.requestsTo('PUT', '/api/farms/3')

@@ -1,4 +1,5 @@
 import type { Farm } from '../../api/farms.ts'
+import { secondaryButtonClassName } from '../buttonStyles.ts'
 
 function describeFulfilment(farm: Farm): string {
   if (farm.pickup_available && farm.delivery_available) {
@@ -38,7 +39,7 @@ export default function FarmProfile({ farm, onEdit }: FarmProfileProps) {
         <button
           type="button"
           onClick={onEdit}
-          className="shrink-0 rounded-md border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-800 shadow-sm transition-colors hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+          className={`shrink-0 ${secondaryButtonClassName}`}
         >
           Edit Farm
         </button>

@@ -4,8 +4,8 @@ import { fieldControlClassName, fieldLabelClassName } from './fieldStyles.ts'
 type SelectFieldProps = {
   label: string
   options: { value: string; label: string }[]
-  /** Text of the empty first option, shown until the user makes a choice. */
-  placeholder: string
+  /** Text of an empty first option. Omit it when one of the options is always selected. */
+  placeholder?: string
 } & Omit<SelectHTMLAttributes<HTMLSelectElement>, 'id' | 'className' | 'children'>
 
 export default function SelectField({
@@ -22,7 +22,7 @@ export default function SelectField({
         {label}
       </label>
       <select id={selectId} className={fieldControlClassName} {...selectProps}>
-        <option value="">{placeholder}</option>
+        {placeholder !== undefined && <option value="">{placeholder}</option>}
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}

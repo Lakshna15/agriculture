@@ -57,3 +57,4 @@ def require_role(*allowed_roles: UserRole) -> Callable[[User], User]:
 
 
 CurrentFarmer = Annotated[User, Depends(require_role(UserRole.FARMER))]
+CurrentCustomer = Annotated[User, Depends(require_role(UserRole.CUSTOMER))]

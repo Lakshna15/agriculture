@@ -6,11 +6,12 @@ from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, create_engine, text
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import get_settings
 from app.database import get_db
 from app.main import app
+from app.models import Base
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
@@ -60,6 +61,20 @@ def db_session(test_engine: Engine) -> Iterator[Session]:
         finally:
             session.close()
             outer_transaction.rollback()
+
+
+@pytest.fixture
+def committing_session_factory(test_engine: Engine) -> Iterator[sessionmaker[Session]]:
+    """Sessions that really commit, for tests that need separate transactions.
+
+    Locking can only be observed between transactions on different
+    connections, which the rolled-back db_session cannot provide. Every table
+    is emptied afterwards so the committed rows do not leak into other tests.
+    """
+    yield sessionmaker(bind=test_engine, expire_on_commit=False)
+    table_names = ", ".join(table.name for table in Base.metadata.sorted_tables)
+    with test_engine.begin() as connection:
+        connection.execute(text(f"TRUNCATE {table_names} RESTART IDENTITY CASCADE"))
 
 
 @pytest.fixture
