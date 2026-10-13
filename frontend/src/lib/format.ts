@@ -32,6 +32,19 @@ export function formatTime(time: string): string {
   return timeFormatter.format(new Date(2000, 0, 1, hours, minutes))
 }
 
+const dateTimeFormatter = new Intl.DateTimeFormat('en-US', {
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+})
+
+/** Formats a timestamp such as "2026-06-01T14:30:00Z" in the reader's own time zone. */
+export function formatDateTime(timestamp: string): string {
+  return dateTimeFormatter.format(new Date(timestamp))
+}
+
 export function formatDistance(miles: number): string {
   return `${miles.toFixed(1)} mi`
 }

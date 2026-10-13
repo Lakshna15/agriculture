@@ -5,8 +5,11 @@ products and farm experiences.
 
 The project is built in phases. So far it has account registration and login with
 role-based access, farm profiles, product listings with tracked inventory, a location
-search that finds products on farms within a chosen radius, product reservations, and
-bookable farm experiences. Grow-On-Demand is added in a later phase.
+search that finds products on farms within a chosen radius, product reservations,
+bookable farm experiences, and Grow-On-Demand: customers request crops they cannot find,
+farmers see the combined local demand and offer to grow them, and an offer is confirmed
+once enough customers commit. Farmers then post crop updates until harvest, committed
+customers are notified in the app, and farmers can poll customers on what to grow next.
 
 ## Technology Stack
 
@@ -97,9 +100,17 @@ Open `http://localhost:5173`.
 | `/register`              | Register                                    | Signed-out visitors |
 | `/customer`              | Search nearby products and reserve them     | Customers           |
 | `/customer/experiences`  | Find and reserve farm experiences           | Customers           |
+| `/customer/crop-requests` | Request a crop and view crop requests      | Customers           |
+| `/customer/grow-offers`  | Browse and join grow offers, view commitments | Customers         |
+| `/customer/grow-offers/{id}` | An offer's crop journey                 | Customers           |
+| `/customer/crop-polls`   | Vote in nearby farms' crop polls            | Customers           |
 | `/customer/reservations` | View and cancel reservations                | Customers           |
 | `/farmer`                | Farm profile and products                   | Farmers             |
 | `/farmer/events`         | Create and view farm events                 | Farmers             |
+| `/farmer/grow-on-demand` | Local demand and grow offers                | Farmers             |
+| `/farmer/grow-on-demand/{id}` | Post crop updates for an offer         | Farmers             |
+| `/farmer/crop-polls`     | Create crop polls and see the votes         | Farmers             |
+| `/notifications`         | In-app notifications                        | Any signed-in user  |
 | `/farmer/reservations`   | View reservations and update their status   | Farmers             |
 
 The dev server proxies `/api` to the backend, so the browser talks to a single origin and
@@ -360,6 +371,222 @@ reservation's customer nor the owner of its farm receives `403`.
 
 A farmer sees the customer's name on a reservation and nothing else about them.
 
+## Grow-On-Demand
+
+When a customer cannot find a crop nearby, they can ask for it. Requests from customers in
+the same area are added together into local demand, which farmers can see. A farmer who
+decides to grow the crop creates a grow offer, customers commit to it, and the offer is
+confirmed when enough of them have.
+
+```
+Customer cannot find a crop  ->  Crop request  ->  Local demand (totals only)
+        ->  Farmer's grow offer  ->  Customer commitments  ->  Offer CONFIRMED
+```
+
+### Crop requests
+
+| Method | Path                                  | Purpose                          | Who may call it | Success |
+| ------ | ------------------------------------- | -------------------------------- | --------------- | ------- |
+| `POST` | `/api/crop-requests`                  | Ask nearby farmers for a crop    | Customers       | `201`   |
+| `GET`  | `/api/crop-requests/mine`             | The customer's own requests      | Customers       | `200`   |
+| `POST` | `/api/crop-requests/{id}/cancel`      | Withdraw an open request         | Its customer    | `200`   |
+
+A request has a `crop_name`, `quantity`, `unit`, `frequency` (`ONE_TIME`, `WEEKLY` or
+`MONTHLY`), the customer's `latitude` and `longitude`, a `radius_miles` they are willing to
+travel, and an optional `preferred_season` and `notes`.
+
+- **Only customers** can create requests. Farmers and administrators receive `403`.
+- **Crop names have one spelling.** Names are trimmed and each word capitalized, so
+  `"sweet  CORN"` is stored as `"Sweet Corn"`. Requests and offers for the same crop then
+  match exactly. Singular and plural forms are still different names.
+- **One open request per customer per crop.** A second one returns `409`. A partial unique
+  index enforces this, so demand cannot be inflated by repeating a request.
+- Another customer's request is reported as `404` on cancel, not `403`, so the endpoint
+  does not confirm which ids exist.
+
+### Local demand
+
+`GET /api/demand` returns, for the signed-in farmer's own farm, one row per crop and unit:
+
+```json
+{
+  "crop_name": "Okra",
+  "unit": "LB",
+  "customers_interested": 42,
+  "estimated_weekly_quantity": 126.0,
+  "one_time_quantity": 0
+}
+```
+
+- **Which requests count.** An open request counts when the farm lies within the distance
+  its customer is willing to travel. PostGIS makes the comparison with `ST_DWithin`,
+  using each request's own `radius_miles`.
+- **Estimated weekly quantity** is the sum of weekly requests plus monthly requests
+  multiplied by 12/52. One-time requests are totalled separately.
+- **Demand that is already being met is left out.** A request stops counting once its
+  customer has joined an active grow offer for the same crop, and counts again if that
+  offer is cancelled. This is worked out from commitments on every read, not stored, so it
+  cannot fall out of step.
+
+### What farmers can and cannot see
+
+Customers' locations are private. The demand endpoint is built so that it cannot reveal them:
+
+- The response contains only the five fields above. There are no coordinates, no customer
+  ids or names, no notes, and no per-request rows.
+- A farmer can ask only about their own farm, never about an arbitrary point.
+- Matching does not use the customer's exact location. Each request has a second point,
+  generated by PostgreSQL, with the coordinates rounded to two decimal places: a cell
+  about 0.7 miles across. A farmer who repeatedly moves their farm to see where a request
+  appears and disappears could at best locate that cell, not an address.
+
+A single request is still reported, as "1 customer interested". Hiding small counts would
+protect a lone requester further but would also hide exactly the early demand the feature
+exists to surface.
+
+### Grow offers
+
+| Method | Path                               | Purpose                                 | Who may call it         | Success |
+| ------ | ---------------------------------- | --------------------------------------- | ----------------------- | ------- |
+| `POST` | `/api/grow-offers`                 | Offer to grow a crop                    | Farmers with a farm     | `201`   |
+| `GET`  | `/api/grow-offers/mine`            | The farm's offers with their progress   | Farmers                 | `200`   |
+| `GET`  | `/api/grow-offers/search`          | Offers near a location that can be joined | Anyone, no token needed | `200` |
+| `POST` | `/api/grow-offers/{id}/cancel`     | Call off an offer                       | The farmer who owns it  | `200`   |
+
+An offer has a `crop_name`, `expected_quantity`, `unit`, `estimated_price` per unit,
+`planting_date`, `expected_harvest_date` and `minimum_customers`. Every offer starts `OPEN`.
+Its status is one of `OPEN`, `CONFIRMED`, `GROWING`, `READY`, `COMPLETED`, `CANCELLED`.
+
+Each offer is returned with `committed_customers` and `committed_quantity`, which is what
+the interface shows as "12 / 20 customers committed". Farmers see these totals, not who
+committed.
+
+The search takes `latitude`, `longitude`, `radius_miles` and an optional `crop`, and returns
+`OPEN` and `CONFIRMED` offers whose harvest date has not passed, soonest harvest first.
+A farmer can cancel an offer while it is `OPEN` or `CONFIRMED`. `GET /api/grow-offers/{id}`
+returns one offer with its farm and progress, and needs no token.
+
+### Commitments and confirmation
+
+| Method | Path                         | Purpose                         | Who may call it | Success |
+| ------ | ---------------------------- | ------------------------------- | --------------- | ------- |
+| `POST` | `/api/crop-commitments`      | Commit to part of an offer      | Customers       | `201`   |
+| `GET`  | `/api/crop-commitments/mine` | The customer's own commitments  | Customers       | `200`   |
+
+- **One commitment per customer per offer.** A second returns `409`, backed by a unique
+  constraint on `(grow_offer_id, customer_id)`.
+- **Commitments cannot exceed the expected harvest.** Asking for more than is left returns
+  `409` with the amount remaining.
+- **Only `OPEN` and `CONFIRMED` offers accept commitments.**
+- **Automatic confirmation.** When the number of committed customers reaches
+  `minimum_customers`, the offer moves from `OPEN` to `CONFIRMED`. The threshold counts
+  customers, not quantity.
+
+The transition is safe under concurrent requests. Committing locks the offer row
+(`SELECT ... FOR UPDATE`) before anything is counted, so commitments to one offer are
+handled one at a time, and the commitment that reaches the threshold is the one that
+confirms the offer. The commitment and the status change are saved in a single
+transaction. Without the lock, two customers committing at the same moment could each
+count only themselves and leave an offer that had met its threshold still open;
+`tests/test_grow_offer_concurrency.py` reproduces exactly that on two connections.
+
+No payment is taken at any point. A commitment is a promise to buy, not a purchase.
+
+### Crop journey
+
+Once an offer exists, its farmer keeps customers informed by posting crop updates. Together
+they form the offer's crop journey.
+
+| Method | Path                                | Purpose                             | Who may call it         | Success |
+| ------ | ----------------------------------- | ----------------------------------- | ----------------------- | ------- |
+| `POST` | `/api/grow-offers/{id}/updates`     | Post an update                      | The farmer who owns it  | `201`   |
+| `GET`  | `/api/grow-offers/{id}/updates`     | The journey, oldest update first    | Anyone, no token needed | `200`   |
+| `POST` | `/api/grow-offers/{id}/complete`    | Close an offer whose crop was ready | The farmer who owns it  | `200`   |
+
+An update has a `stage`, a `message` and an optional `image_url`. The stages, in growing
+order, are `PLANNED`, `PLANTED`, `GERMINATED`, `GROWING`, `FLOWERING`, `HARVEST_SOON`, `READY`.
+
+- **Only the farm's owner can post.** Another farmer, a customer (even one committed to the
+  offer) and an administrator all receive `403`.
+- **Updates drive the offer's status**, so the two cannot disagree:
+
+  | Offer status | Update stage                 | Offer becomes |
+  | ------------ | ---------------------------- | ------------- |
+  | `OPEN`       | `PLANNED`                    | stays `OPEN`  |
+  | `CONFIRMED`  | `PLANNED`                    | stays `CONFIRMED` |
+  | `CONFIRMED`  | `PLANTED` to `HARVEST_SOON`  | `GROWING`     |
+  | `CONFIRMED` or `GROWING` | `READY`          | `READY`       |
+  | `READY`      | marked completed by the farmer | `COMPLETED` |
+
+- **An open offer can only be planned.** Until enough customers have committed, the farmer
+  has not agreed to grow the crop, so any stage past `PLANNED` returns `409`.
+- **Stages do not go backwards.** A stage earlier than the latest one posted returns `409`.
+  Posting the same stage again is allowed, for several notes on one stage.
+- **Closed offers take no updates.** `COMPLETED` and `CANCELLED` offers return `409`.
+- **Photos are links, not uploads.** `image_url` must be an `https` link of at most 500
+  characters. The interface shows it as a "View photo" link that the reader chooses to
+  open. It is deliberately not embedded: an image that loads automatically would let
+  whoever hosts it see the network address of every customer who opens the page.
+
+The update, any status change and the notifications it triggers are saved in one
+transaction, under a lock on the offer.
+
+### Notifications
+
+Notifications are in-app only. Nothing is sent by email, SMS or push.
+
+| Method | Path                            | Purpose                              | Success |
+| ------ | ------------------------------- | ------------------------------------ | ------- |
+| `GET`  | `/api/notifications`            | The user's 50 most recent, newest first | `200` |
+| `GET`  | `/api/notifications/unread-count` | How many are unread                | `200`   |
+| `POST` | `/api/notifications/{id}/read`  | Mark one as read                     | `200`   |
+| `POST` | `/api/notifications/read-all`   | Mark all as read                     | `204`   |
+
+Every endpoint works on the signed-in user's own notifications; there is no way to name
+another user, and someone else's notification id returns `404`.
+
+Customers committed to a grow offer are notified when:
+
+| Event                                              | Type                   |
+| -------------------------------------------------- | ---------------------- |
+| The offer reaches its minimum and is confirmed     | `GROW_OFFER_CONFIRMED` |
+| The farmer posts a crop update                     | `CROP_UPDATE_POSTED`   |
+| A `READY` update makes the crop ready              | `CROP_READY`           |
+| The farmer cancels the offer                       | `GROW_OFFER_CANCELLED` |
+
+- The update that makes a crop ready sends one `CROP_READY` notification, not a generic
+  update notice as well.
+- Confirmation is announced once, to everyone committed at that moment, including the
+  customer whose commitment reached the minimum. Someone who joins later is not told.
+- A notification is written in the same transaction as the event it reports, so there is
+  never one without the other.
+
+The header shows the unread count and re-reads it on each page navigation.
+
+### Crop polls
+
+A farmer who is undecided can ask nearby customers directly.
+
+| Method | Path                           | Purpose                              | Who may call it         | Success |
+| ------ | ------------------------------ | ------------------------------------ | ----------------------- | ------- |
+| `POST` | `/api/crop-polls`              | Create a poll                        | Farmers with a farm     | `201`   |
+| `GET`  | `/api/crop-polls/mine`         | The farm's polls with vote counts    | Farmers                 | `200`   |
+| `POST` | `/api/crop-polls/{id}/close`   | Stop accepting votes                 | The farmer who owns it  | `200`   |
+| `GET`  | `/api/crop-polls/search`       | Open polls on farms near a location  | Anyone, no token needed | `200`   |
+| `POST` | `/api/crop-votes`              | Vote for one option                  | Customers               | `201`   |
+| `GET`  | `/api/crop-votes/mine`         | Which option the customer chose in each poll | Customers       | `200`   |
+
+- A poll has a `question`, which defaults to "What should I grow next?", and two to eight
+  `options`. Options are crop names in the same canonical spelling used elsewhere and
+  cannot repeat.
+- **One vote per customer per poll.** A second vote, for the same or another option,
+  returns `409`. A unique constraint on `(poll_id, customer_id)` enforces it even when two
+  requests arrive together.
+- **A vote's option must belong to its poll.** The API rejects a mismatch with `422`, and a
+  composite foreign key makes the database refuse it as well.
+- Closed polls take no votes.
+- Farmers see how many votes each option has, never who cast them.
+
 ## Testing
 
 Backend tests (the stack must be running):
@@ -372,11 +599,12 @@ The suite creates its own `<POSTGRES_DB>_test` database, builds it by running th
 migrations, and wraps every test in a transaction that is rolled back. It never reads or
 writes the development database.
 
-`tests/test_reservation_concurrency.py` is the exception to the rollback rule. It starts
-two threads on separate database connections to reserve the last units of a product, the
-last places at an event, and to cancel one reservation from both sides at once. Those
-tests commit for real, because row locks only act between transactions, and they empty
-the test tables afterwards.
+`tests/test_reservation_concurrency.py` and `tests/test_grow_offer_concurrency.py` are the
+exceptions to the rollback rule. They start two threads on separate database connections
+to reserve the last units of a product, book the last places at an event, cancel one
+reservation from both sides at once, and commit the last two customers a grow offer needs.
+Those tests commit for real, because row locks only act between transactions, and they
+empty the test tables afterwards.
 
 Frontend tests and type-checked production build:
 
@@ -436,7 +664,8 @@ farm2local/
 │   │   ├── models/         SQLAlchemy models
 │   │   ├── routers/        API routes
 │   │   ├── schemas/        Pydantic request and response models
-│   │   └── services/       Business logic: accounts, farms, products, search, reservations, events
+│   │   └── services/       Business logic: accounts, farms, products, search, reservations, events,
+│   │                       grow-on-demand, crop journey, polls, notifications
 │   ├── tests/
 │   ├── Dockerfile
 │   └── requirements.txt
@@ -447,7 +676,8 @@ farm2local/
 │       ├── components/     Shared layout and form fields; farm, product, search, event and reservation components
 │       ├── data/           Static reference data: US states, product and event options
 │       ├── lib/            Formatting, coordinates, data loading and reservation helpers
-│       ├── pages/          Dashboard frames, with customer/ and farmer/ pages inside them
+│       ├── pages/          Dashboard frames with customer/ and farmer/ pages inside them, plus
+│       │                   the shared crop journey and notifications pages
 │       ├── test/           Test setup and helpers
 │       ├── routes.tsx      Route table
 │       └── main.tsx        Application entry point

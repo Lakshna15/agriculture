@@ -84,5 +84,9 @@ export async function apiRequest<ResponseBody>(
     }
     throw new ApiError(response.status, await readErrorMessage(response))
   }
+  // 204 No Content has no body to parse.
+  if (response.status === 204) {
+    return undefined as ResponseBody
+  }
   return (await response.json()) as ResponseBody
 }

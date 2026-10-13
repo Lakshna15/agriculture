@@ -1,4 +1,5 @@
 import { useRef, useState, type FormEvent } from 'react'
+import { Link } from 'react-router'
 import { describeApiError } from '../../api/errors.ts'
 import {
   searchProducts,
@@ -7,6 +8,7 @@ import {
   type ProductSearchSort,
 } from '../../api/products.ts'
 import type { ProductReservation } from '../../api/reservations.ts'
+import { primaryButtonClassName } from '../../components/buttonStyles.ts'
 import CheckboxField from '../../components/CheckboxField.tsx'
 import FormError from '../../components/FormError.tsx'
 import LocationFields from '../../components/search/LocationFields.tsx'
@@ -236,6 +238,18 @@ export default function ProductSearchPage() {
               Try a wider radius, a different search term, or include products that are not
               available right now.
             </p>
+            <div className="mx-auto mt-6 max-w-md border-t border-stone-200 pt-6">
+              <p className="font-semibold text-stone-900">{"Can't find this crop nearby?"}</p>
+              <p className="mt-1 text-sm text-stone-600">Request it from local farmers.</p>
+              <Link
+                to="/customer/crop-requests"
+                // The crop request form starts with what the customer just searched for.
+                state={{ cropName: searchState.query }}
+                className={`mt-4 inline-block ${primaryButtonClassName}`}
+              >
+                Request this crop
+              </Link>
+            </div>
           </div>
         )}
 
@@ -253,6 +267,16 @@ export default function ProductSearchPage() {
                 />
               ))}
             </ul>
+            <p className="mt-6 text-center text-sm text-stone-600">
+              Not what you were looking for?{' '}
+              <Link
+                to="/customer/crop-requests"
+                state={{ cropName: searchState.query }}
+                className="font-medium text-green-800 underline underline-offset-4"
+              >
+                Request a crop from local farmers
+              </Link>
+            </p>
           </>
         )}
       </section>

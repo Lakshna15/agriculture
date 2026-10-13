@@ -7,12 +7,9 @@ same instant with nothing left to set up. Run against the code with its row
 locks removed, all three tests fail.
 """
 
-import threading
-from collections.abc import Callable
 from datetime import time
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session, sessionmaker
 
 from app.models.event import EventReservation, FarmEvent
 from app.models.product import InventoryHistory, Product
@@ -27,6 +24,7 @@ from app.services.reservations import (
     change_product_reservation_status,
     create_product_reservation,
 )
+from tests.concurrency import SessionFactory, WaitForStart, run_together
 from tests.helpers import (
     create_event,
     create_farmer_with_farm,
@@ -34,31 +32,6 @@ from tests.helpers import (
     create_user,
     days_from_today,
 )
-
-SessionFactory = sessionmaker[Session]
-
-# An action receives a function to call once it is connected and ready. That
-# call blocks until every other action is ready too.
-WaitForStart = Callable[[], None]
-Action = Callable[[WaitForStart], str]
-
-
-def run_together(actions: list[Action]) -> list[str]:
-    """Run each action on its own thread and release them all at the same instant."""
-    barrier = threading.Barrier(len(actions))
-    outcomes: list[str] = []
-
-    def run(action: Action) -> None:
-        outcomes.append(action(lambda: barrier.wait(timeout=10)))
-
-    threads = [threading.Thread(target=run, args=(action,)) for action in actions]
-    for thread in threads:
-        thread.start()
-    for thread in threads:
-        thread.join(timeout=30)
-    assert not any(thread.is_alive() for thread in threads), "a reservation is deadlocked"
-    assert len(outcomes) == len(actions), "a thread ended without reporting an outcome"
-    return sorted(outcomes)
 
 
 def test_two_customers_cannot_both_reserve_the_last_units(

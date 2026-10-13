@@ -4,6 +4,8 @@ import DashboardTabs from '../components/DashboardTabs.tsx'
 const farmerTabs = [
   { to: '/farmer', label: 'Farm and products', end: true },
   { to: '/farmer/events', label: 'Farm events' },
+  { to: '/farmer/grow-on-demand', label: 'Grow-On-Demand' },
+  { to: '/farmer/crop-polls', label: 'Crop polls' },
   { to: '/farmer/reservations', label: 'Reservations' },
 ]
 

@@ -1,5 +1,8 @@
 import { vi } from 'vitest'
 import type { User, UserRole } from '../api/auth.ts'
+import type { CropStage, CropUpdate, NewCropUpdate } from '../api/cropJourney.ts'
+import type { CropPoll, CropPollSearchResult, CropVote, NewCropPoll } from '../api/cropPolls.ts'
+import type { CropDemand, CropRequest, NewCropRequest } from '../api/cropRequests.ts'
 import type {
   EventReservation,
   EventSearchResult,
@@ -7,6 +10,13 @@ import type {
   NewFarmEvent,
 } from '../api/events.ts'
 import type { Farm, FarmDetails } from '../api/farms.ts'
+import type {
+  CropCommitment,
+  GrowOffer,
+  GrowOfferSearchResult,
+  NewGrowOffer,
+} from '../api/growOffers.ts'
+import type { Notification } from '../api/notifications.ts'
 import type { NewProduct, Product, ProductDetails, ProductSearchResult } from '../api/products.ts'
 import type {
   NewProductReservation,
@@ -36,6 +46,18 @@ type InitialData = {
   events?: FarmEvent[]
   eventSearchResults?: EventSearchResult[]
   eventReservations?: EventReservation[]
+  cropRequests?: CropRequest[]
+  /** Returned as-is to any farmer who asks for local demand. */
+  demand?: CropDemand[]
+  growOffers?: GrowOffer[]
+  growOfferSearchResults?: GrowOfferSearchResult[]
+  commitments?: CropCommitment[]
+  /** Updates of every grow offer, in posting order. */
+  cropUpdates?: CropUpdate[]
+  cropPolls?: CropPoll[]
+  cropPollSearchResults?: CropPollSearchResult[]
+  cropVotes?: CropVote[]
+  notifications?: Notification[]
 }
 
 const TIMESTAMP = '2026-01-01T00:00:00Z'
@@ -213,6 +235,148 @@ export function buildEventReservation(overrides: Partial<EventReservation> = {})
   }
 }
 
+export function buildCropRequest(overrides: Partial<CropRequest> = {}): CropRequest {
+  return {
+    id: 1,
+    crop_name: 'Okra',
+    quantity: 3,
+    unit: 'LB',
+    frequency: 'WEEKLY',
+    latitude: 35.227,
+    longitude: -80.843,
+    radius_miles: 25,
+    preferred_season: 'SUMMER',
+    notes: null,
+    status: 'OPEN',
+    created_at: TIMESTAMP,
+    covered_by_commitment: false,
+    ...overrides,
+  }
+}
+
+export function buildCropDemand(overrides: Partial<CropDemand> = {}): CropDemand {
+  return {
+    crop_name: 'Okra',
+    unit: 'LB',
+    customers_interested: 42,
+    estimated_weekly_quantity: 126,
+    one_time_quantity: 0,
+    ...overrides,
+  }
+}
+
+export function buildGrowOffer(overrides: Partial<GrowOffer> = {}): GrowOffer {
+  return {
+    id: 1,
+    farm_id: 1,
+    crop_name: 'Okra',
+    expected_quantity: 100,
+    unit: 'LB',
+    estimated_price: '3.50',
+    planting_date: '2026-04-15',
+    expected_harvest_date: '2026-07-01',
+    minimum_customers: 20,
+    status: 'OPEN',
+    created_at: TIMESTAMP,
+    committed_customers: 12,
+    committed_quantity: 40,
+    ...overrides,
+  }
+}
+
+export function buildGrowOfferSearchResult(
+  overrides: {
+    offer?: Partial<GrowOffer>
+    farm?: Partial<GrowOfferSearchResult['farm']>
+  } & Partial<Pick<GrowOfferSearchResult, 'distance_miles'>> = {},
+): GrowOfferSearchResult {
+  return {
+    offer: buildGrowOffer(overrides.offer),
+    farm: { id: 1, farm_name: 'Green Acres', city: 'Charlotte', state: 'NC', ...overrides.farm },
+    distance_miles: overrides.distance_miles ?? 3.2,
+  }
+}
+
+export function buildCropCommitment(
+  overrides: Partial<Omit<CropCommitment, 'offer'>> & { offer?: Partial<GrowOffer> } = {},
+): CropCommitment {
+  const { offer, ...rest } = overrides
+  return {
+    id: 1,
+    quantity: 5,
+    created_at: TIMESTAMP,
+    offer: buildGrowOffer(offer),
+    farm: { id: 1, farm_name: 'Green Acres', city: 'Charlotte', state: 'NC' },
+    ...rest,
+  }
+}
+
+export function buildCropUpdate(overrides: Partial<CropUpdate> = {}): CropUpdate {
+  return {
+    id: 1,
+    grow_offer_id: 1,
+    stage: 'PLANNED',
+    message: 'Seed ordered and beds prepared.',
+    image_url: null,
+    created_at: '2026-04-01T14:00:00Z',
+    ...overrides,
+  }
+}
+
+export function buildCropPoll(overrides: Partial<CropPoll> = {}): CropPoll {
+  const options = overrides.options ?? [
+    { id: 1, crop_name: 'Okra', votes: 6 },
+    { id: 2, crop_name: 'Sweet Corn', votes: 3 },
+    { id: 3, crop_name: 'Collard Greens', votes: 1 },
+  ]
+  return {
+    id: 1,
+    farm_id: 1,
+    question: 'What should I grow next?',
+    status: 'OPEN',
+    created_at: TIMESTAMP,
+    ...overrides,
+    options,
+    total_votes: options.reduce((total, option) => total + option.votes, 0),
+  }
+}
+
+export function buildCropPollSearchResult(
+  overrides: {
+    poll?: Partial<CropPoll>
+    farm?: Partial<CropPollSearchResult['farm']>
+  } & Partial<Pick<CropPollSearchResult, 'distance_miles'>> = {},
+): CropPollSearchResult {
+  return {
+    poll: buildCropPoll(overrides.poll),
+    farm: { id: 1, farm_name: 'Green Acres', city: 'Charlotte', state: 'NC', ...overrides.farm },
+    distance_miles: overrides.distance_miles ?? 3.2,
+  }
+}
+
+export function buildNotification(overrides: Partial<Notification> = {}): Notification {
+  return {
+    id: 1,
+    type: 'GROW_OFFER_CONFIRMED',
+    message: 'Okra at Green Acres is confirmed. Enough customers committed, so the farm will grow it.',
+    read: false,
+    created_at: '2026-04-01T14:00:00Z',
+    ...overrides,
+  }
+}
+
+/** Stages that mean the crop is in the ground, as the API treats them. */
+const GROWING_STAGES: CropStage[] = ['PLANTED', 'GERMINATED', 'GROWING', 'FLOWERING', 'HARVEST_SOON']
+
+/** Gives a crop name the same canonical spelling the API does. */
+function normalizeCropName(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter((word) => word !== '')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ')
+}
+
 /**
  * Replaces fetch with an in-memory stand-in for the backend. It follows the
  * real API's status codes and error bodies so the tests exercise the same
@@ -227,10 +391,21 @@ export function installFakeApi(initial: InitialData = {}) {
   const events = [...(initial.events ?? [])]
   const eventSearchResults = [...(initial.eventSearchResults ?? [])]
   const eventReservations = [...(initial.eventReservations ?? [])]
+  const cropRequests = [...(initial.cropRequests ?? [])]
+  const demand = initial.demand ?? []
+  const growOffers = [...(initial.growOffers ?? [])]
+  const growOfferSearchResults = [...(initial.growOfferSearchResults ?? [])]
+  const commitments = [...(initial.commitments ?? [])]
+  const cropUpdates = [...(initial.cropUpdates ?? [])]
+  const cropPolls = [...(initial.cropPolls ?? [])]
+  const cropPollSearchResults = [...(initial.cropPollSearchResults ?? [])]
+  const cropVotes = [...(initial.cropVotes ?? [])]
+  const notifications = [...(initial.notifications ?? [])]
   const usersByToken = new Map<string, User>()
   const requests: RecordedRequest[] = []
   const searches: Record<string, string>[] = []
   const eventSearches: Record<string, string>[] = []
+  const growOfferSearches: Record<string, string>[] = []
   const forcedFailures: ForcedFailure[] = []
 
   function issueToken(user: User): string {
@@ -540,6 +715,321 @@ export function installFakeApi(initial: InitialData = {}) {
     return null
   }
 
+  function handleGrowOnDemandRequest(
+    method: string,
+    path: string,
+    body: unknown,
+    user: User | undefined,
+  ) {
+    const isGrowOnDemandPath = ['/api/crop-requests', '/api/demand', '/api/grow-offers', '/api/crop-commitments'].some(
+      (prefix) => path.startsWith(prefix),
+    )
+    if (!isGrowOnDemandPath) {
+      return null
+    }
+    if (method === 'GET' && path === '/api/grow-offers/search') {
+      return jsonResponse(200, growOfferSearchResults)
+    }
+    if (!user) {
+      return jsonResponse(401, { detail: 'Not authenticated' })
+    }
+
+    if (method === 'GET' && path === '/api/crop-requests/mine') {
+      return jsonResponse(200, cropRequests)
+    }
+    if (method === 'POST' && path === '/api/crop-requests') {
+      const details = body as NewCropRequest
+      const cropName = normalizeCropName(details.crop_name)
+      const hasOpenRequest = cropRequests.some(
+        (request) => request.crop_name === cropName && request.status === 'OPEN',
+      )
+      if (hasOpenRequest) {
+        return jsonResponse(409, { detail: `You already have an open request for ${cropName}` })
+      }
+      const request = buildCropRequest({
+        ...details,
+        crop_name: cropName,
+        id: cropRequests.length + 1,
+      })
+      cropRequests.unshift(request)
+      return jsonResponse(201, request)
+    }
+    const cancelRequestMatch = /^\/api\/crop-requests\/(\d+)\/cancel$/.exec(path)
+    if (method === 'POST' && cancelRequestMatch) {
+      const index = cropRequests.findIndex((request) => request.id === Number(cancelRequestMatch[1]))
+      if (index === -1) {
+        return jsonResponse(404, { detail: 'Crop request not found' })
+      }
+      cropRequests[index] = { ...cropRequests[index], status: 'CANCELLED' }
+      return jsonResponse(200, cropRequests[index])
+    }
+
+    if (method === 'GET' && path === '/api/demand') {
+      return jsonResponse(200, demand)
+    }
+
+    if (method === 'GET' && path === '/api/grow-offers/mine') {
+      return jsonResponse(200, growOffers)
+    }
+    if (method === 'POST' && path === '/api/grow-offers') {
+      const farm = farms.find((candidate) => candidate.owner_id === user.id)
+      if (!farm) {
+        return jsonResponse(409, { detail: 'Create your farm first' })
+      }
+      const details = body as NewGrowOffer
+      const offer = buildGrowOffer({
+        ...details,
+        crop_name: normalizeCropName(details.crop_name),
+        id: growOffers.length + 1,
+        farm_id: farm.id,
+        status: 'OPEN',
+        committed_customers: 0,
+        committed_quantity: 0,
+      })
+      growOffers.unshift(offer)
+      return jsonResponse(201, offer)
+    }
+    const cancelOfferMatch = /^\/api\/grow-offers\/(\d+)\/cancel$/.exec(path)
+    if (method === 'POST' && cancelOfferMatch) {
+      const index = growOffers.findIndex((offer) => offer.id === Number(cancelOfferMatch[1]))
+      if (index === -1) {
+        return jsonResponse(404, { detail: 'Grow offer not found' })
+      }
+      growOffers[index] = { ...growOffers[index], status: 'CANCELLED' }
+      return jsonResponse(200, growOffers[index])
+    }
+
+    if (method === 'GET' && path === '/api/crop-commitments/mine') {
+      return jsonResponse(200, commitments)
+    }
+    if (method === 'POST' && path === '/api/crop-commitments') {
+      const details = body as { grow_offer_id: number; quantity: number }
+      const resultIndex = growOfferSearchResults.findIndex(
+        (result) => result.offer.id === details.grow_offer_id,
+      )
+      if (resultIndex === -1) {
+        return jsonResponse(404, { detail: 'Grow offer not found' })
+      }
+      const { offer, farm } = growOfferSearchResults[resultIndex]
+      if (commitments.some((commitment) => commitment.offer.id === offer.id)) {
+        return jsonResponse(409, { detail: 'You have already committed to this grow offer' })
+      }
+      const quantityRemaining = offer.expected_quantity - offer.committed_quantity
+      if (details.quantity > quantityRemaining) {
+        return jsonResponse(409, { detail: `Only ${quantityRemaining} left in this grow offer` })
+      }
+      // Like the API: the commitment that reaches the minimum confirms the offer.
+      const committedCustomers = offer.committed_customers + 1
+      const updatedOffer: GrowOffer = {
+        ...offer,
+        committed_customers: committedCustomers,
+        committed_quantity: offer.committed_quantity + details.quantity,
+        status:
+          offer.status === 'OPEN' && committedCustomers >= offer.minimum_customers
+            ? 'CONFIRMED'
+            : offer.status,
+      }
+      growOfferSearchResults[resultIndex] = { ...growOfferSearchResults[resultIndex], offer: updatedOffer }
+      const commitment: CropCommitment = {
+        id: commitments.length + 1,
+        quantity: details.quantity,
+        created_at: TIMESTAMP,
+        offer: updatedOffer,
+        farm,
+      }
+      commitments.unshift(commitment)
+      return jsonResponse(201, commitment)
+    }
+    return null
+  }
+
+  /** Finds a grow offer wherever a test placed it: a farmer's list, search results or commitments. */
+  function findGrowOffer(offerId: number): GrowOffer | undefined {
+    return (
+      growOffers.find((offer) => offer.id === offerId) ??
+      growOfferSearchResults.find((result) => result.offer.id === offerId)?.offer ??
+      commitments.find((commitment) => commitment.offer.id === offerId)?.offer
+    )
+  }
+
+  function replaceGrowOffer(updatedOffer: GrowOffer): void {
+    const index = growOffers.findIndex((offer) => offer.id === updatedOffer.id)
+    if (index === -1) {
+      growOffers.push(updatedOffer)
+    } else {
+      growOffers[index] = updatedOffer
+    }
+  }
+
+  function handleCropJourneyRequest(
+    method: string,
+    path: string,
+    body: unknown,
+    user: User | undefined,
+  ) {
+    const match = /^\/api\/grow-offers\/(\d+)(\/updates|\/complete)?$/.exec(path)
+    if (!match) {
+      return null
+    }
+    const offer = findGrowOffer(Number(match[1]))
+    if (!offer) {
+      return jsonResponse(404, { detail: 'Grow offer not found' })
+    }
+    const action = match[2]
+
+    if (method === 'GET' && action === undefined) {
+      return jsonResponse(200, {
+        offer,
+        farm: { id: offer.farm_id, farm_name: 'Green Acres', city: 'Charlotte', state: 'NC' },
+      })
+    }
+    if (method === 'GET' && action === '/updates') {
+      return jsonResponse(
+        200,
+        cropUpdates.filter((update) => update.grow_offer_id === offer.id),
+      )
+    }
+    if (!user) {
+      return jsonResponse(401, { detail: 'Not authenticated' })
+    }
+
+    if (method === 'POST' && action === '/updates') {
+      const details = body as NewCropUpdate
+      const update = buildCropUpdate({
+        ...details,
+        id: cropUpdates.length + 1,
+        grow_offer_id: offer.id,
+        created_at: '2026-05-01T14:00:00Z',
+      })
+      cropUpdates.push(update)
+      // Like the API: a growing stage starts a confirmed offer growing, and READY makes it ready.
+      if (details.stage === 'READY' && (offer.status === 'CONFIRMED' || offer.status === 'GROWING')) {
+        replaceGrowOffer({ ...offer, status: 'READY' })
+      } else if (GROWING_STAGES.includes(details.stage) && offer.status === 'CONFIRMED') {
+        replaceGrowOffer({ ...offer, status: 'GROWING' })
+      }
+      return jsonResponse(201, update)
+    }
+    if (method === 'POST' && action === '/complete') {
+      const completedOffer: GrowOffer = { ...offer, status: 'COMPLETED' }
+      replaceGrowOffer(completedOffer)
+      return jsonResponse(200, completedOffer)
+    }
+    return null
+  }
+
+  function handleCropPollRequest(
+    method: string,
+    path: string,
+    body: unknown,
+    user: User | undefined,
+  ) {
+    if (!path.startsWith('/api/crop-polls') && !path.startsWith('/api/crop-votes')) {
+      return null
+    }
+    if (method === 'GET' && path === '/api/crop-polls/search') {
+      return jsonResponse(200, cropPollSearchResults)
+    }
+    if (!user) {
+      return jsonResponse(401, { detail: 'Not authenticated' })
+    }
+
+    if (method === 'GET' && path === '/api/crop-polls/mine') {
+      return jsonResponse(200, cropPolls)
+    }
+    if (method === 'POST' && path === '/api/crop-polls') {
+      const farm = farms.find((candidate) => candidate.owner_id === user.id)
+      if (!farm) {
+        return jsonResponse(409, { detail: 'Create your farm first' })
+      }
+      const details = body as NewCropPoll
+      const poll = buildCropPoll({
+        id: cropPolls.length + 1,
+        farm_id: farm.id,
+        question: details.question,
+        options: details.options.map((cropName, index) => ({
+          id: index + 1,
+          crop_name: normalizeCropName(cropName),
+          votes: 0,
+        })),
+      })
+      cropPolls.unshift(poll)
+      return jsonResponse(201, poll)
+    }
+    const closeMatch = /^\/api\/crop-polls\/(\d+)\/close$/.exec(path)
+    if (method === 'POST' && closeMatch) {
+      const index = cropPolls.findIndex((poll) => poll.id === Number(closeMatch[1]))
+      if (index === -1) {
+        return jsonResponse(404, { detail: 'Crop poll not found' })
+      }
+      cropPolls[index] = { ...cropPolls[index], status: 'CLOSED' }
+      return jsonResponse(200, cropPolls[index])
+    }
+
+    if (method === 'GET' && path === '/api/crop-votes/mine') {
+      return jsonResponse(200, cropVotes)
+    }
+    if (method === 'POST' && path === '/api/crop-votes') {
+      const details = body as CropVote
+      const resultIndex = cropPollSearchResults.findIndex(
+        (result) => result.poll.id === details.poll_id,
+      )
+      if (resultIndex === -1) {
+        return jsonResponse(404, { detail: 'Crop poll not found' })
+      }
+      if (cropVotes.some((vote) => vote.poll_id === details.poll_id)) {
+        return jsonResponse(409, { detail: 'You have already voted in this crop poll' })
+      }
+      const { poll } = cropPollSearchResults[resultIndex]
+      const updatedPoll = buildCropPoll({
+        ...poll,
+        options: poll.options.map((option) =>
+          option.id === details.option_id ? { ...option, votes: option.votes + 1 } : option,
+        ),
+      })
+      cropPollSearchResults[resultIndex] = { ...cropPollSearchResults[resultIndex], poll: updatedPoll }
+      cropVotes.unshift({ poll_id: details.poll_id, option_id: details.option_id })
+      return jsonResponse(201, { ...details, poll: updatedPoll })
+    }
+    return null
+  }
+
+  function handleNotificationRequest(method: string, path: string, user: User | undefined) {
+    if (!path.startsWith('/api/notifications')) {
+      return null
+    }
+    if (!user) {
+      return jsonResponse(401, { detail: 'Not authenticated' })
+    }
+
+    if (method === 'GET' && path === '/api/notifications') {
+      return jsonResponse(200, notifications)
+    }
+    if (method === 'GET' && path === '/api/notifications/unread-count') {
+      return jsonResponse(200, {
+        unread: notifications.filter((notification) => !notification.read).length,
+      })
+    }
+    if (method === 'POST' && path === '/api/notifications/read-all') {
+      notifications.forEach((notification, index) => {
+        notifications[index] = { ...notification, read: true }
+      })
+      return new Response(null, { status: 204 })
+    }
+    const readMatch = /^\/api\/notifications\/(\d+)\/read$/.exec(path)
+    if (method === 'POST' && readMatch) {
+      const index = notifications.findIndex(
+        (notification) => notification.id === Number(readMatch[1]),
+      )
+      if (index === -1) {
+        return jsonResponse(404, { detail: 'Notification not found' })
+      }
+      notifications[index] = { ...notifications[index], read: true }
+      return jsonResponse(200, notifications[index])
+    }
+    return null
+  }
+
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(String(input), 'http://localhost')
     const path = url.pathname
@@ -551,6 +1041,9 @@ export function installFakeApi(initial: InitialData = {}) {
     }
     if (path === '/api/events/search') {
       eventSearches.push(Object.fromEntries(url.searchParams))
+    }
+    if (path === '/api/grow-offers/search') {
+      growOfferSearches.push(Object.fromEntries(url.searchParams))
     }
 
     const failureIndex = forcedFailures.findIndex(
@@ -571,6 +1064,10 @@ export function installFakeApi(initial: InitialData = {}) {
       handleProductReservationRequest(method, path, body, user) ??
       handleEventRequest(method, path, body, user) ??
       handleEventReservationRequest(method, path, body, user) ??
+      handleCropJourneyRequest(method, path, body, user) ??
+      handleGrowOnDemandRequest(method, path, body, user) ??
+      handleCropPollRequest(method, path, body, user) ??
+      handleNotificationRequest(method, path, user) ??
       jsonResponse(404, { detail: 'Not Found' })
     )
   })
@@ -583,6 +1080,8 @@ export function installFakeApi(initial: InitialData = {}) {
     searches,
     /** The query parameters of every farm experience search, in order. */
     eventSearches,
+    /** The query parameters of every grow offer search, in order. */
+    growOfferSearches,
     issueToken,
     /** Stores a valid token, as if the user had signed in before the page loaded. */
     signIn(user: User): void {

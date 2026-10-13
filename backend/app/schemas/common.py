@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Annotated
 
-from pydantic import AfterValidator, BaseModel, Field
+from pydantic import AfterValidator, BaseModel, Field, StringConstraints
 
 # An id of a database row sent in a request body. The bounds match
 # PostgreSQL's integer type, so an out-of-range id is a validation error
@@ -21,6 +21,23 @@ PositivePrice = Annotated[
 ]
 PriceOrFree = Annotated[
     Decimal, Field(ge=0, max_digits=10, decimal_places=2), AfterValidator(to_whole_cents)
+]
+
+
+def normalize_crop_name(name: str) -> str:
+    """Give a crop name one canonical spelling: single spaces, each word capitalized.
+
+    "sweet  CORN" and "Sweet corn" both become "Sweet Corn", so crop requests
+    and grow offers for the same crop can be matched and counted together.
+    Singular and plural forms are still different names.
+    """
+    return " ".join(word.capitalize() for word in name.split())
+
+
+CropName = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=2, max_length=80),
+    AfterValidator(normalize_crop_name),
 ]
 
 

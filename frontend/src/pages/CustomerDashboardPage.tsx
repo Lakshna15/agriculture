@@ -4,6 +4,9 @@ import DashboardTabs from '../components/DashboardTabs.tsx'
 const customerTabs = [
   { to: '/customer', label: 'Products', end: true },
   { to: '/customer/experiences', label: 'Farm experiences' },
+  { to: '/customer/crop-requests', label: 'Crop requests' },
+  { to: '/customer/grow-offers', label: 'Grow offers' },
+  { to: '/customer/crop-polls', label: 'Crop polls' },
   { to: '/customer/reservations', label: 'My reservations' },
 ]
 
@@ -13,7 +16,8 @@ export default function CustomerDashboardPage() {
     <>
       <h1 className="text-3xl font-bold tracking-tight text-stone-900">Customer Dashboard</h1>
       <p className="mt-2 text-stone-600">
-        Find fresh products and farm experiences near you, and keep track of what you reserved.
+        Find fresh products and farm experiences near you, ask farmers to grow what you cannot
+        find, and keep track of what you reserved.
       </p>
       <DashboardTabs label="Customer dashboard sections" tabs={customerTabs} />
       <div className="mt-8">
