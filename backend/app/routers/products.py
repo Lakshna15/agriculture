@@ -15,6 +15,7 @@ from app.schemas.product import (
     ProductSearchResult,
     ProductUpdate,
 )
+from app.services.application_events import record_product_search
 from app.services.farms import get_farm_owned_by
 from app.services.product_search import search_products
 from app.services.products import (
@@ -32,7 +33,9 @@ router = APIRouter(prefix="/products", tags=["products"])
 def search(
     params: Annotated[ProductSearchParams, Query()], db: DatabaseSession
 ) -> list[ProductSearchResult]:
-    return search_products(db, params)
+    results = search_products(db, params)
+    record_product_search(db, params, results)
+    return results
 
 
 @router.get("/mine", response_model=list[ProductRead])
@@ -59,6 +62,6 @@ def update_my_product(
 
 @router.patch("/{product_id}/inventory", response_model=ProductRead)
 def update_my_product_inventory(
-    inventory: InventoryUpdate, product: OwnedProduct, db: DatabaseSession
+    inventory: InventoryUpdate, product: OwnedProduct, farmer: CurrentFarmer, db: DatabaseSession
 ) -> Product:
-    return update_product_inventory(db, product, inventory.quantity_available)
+    return update_product_inventory(db, product, inventory.quantity_available, farmer)

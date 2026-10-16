@@ -5,6 +5,7 @@ from app.dependencies.auth import CurrentFarmer
 from app.dependencies.path_params import ResourceId
 from app.models.farm import Farm
 from app.schemas.farm import FarmRead, FarmWrite
+from app.services.application_events import record_farm_profile_view
 from app.services.farms import (
     FarmAlreadyExistsError,
     create_farm,
@@ -49,6 +50,7 @@ def read_farm(farm_id: ResourceId, db: DatabaseSession) -> Farm:
     farm = get_farm(db, farm_id)
     if farm is None:
         raise _farm_not_found()
+    record_farm_profile_view(db, farm)
     return farm
 
 

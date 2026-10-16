@@ -3,15 +3,13 @@ import { describeApiError } from '../../api/errors.ts'
 import type { FarmEventType, NewFarmEvent } from '../../api/events.ts'
 import { farmEventTypeOptions } from '../../data/eventOptions.ts'
 import { todayAsIsoDate } from '../../lib/format.ts'
+import { PRICE_PATTERN, WHOLE_NUMBER_PATTERN } from '../../lib/numberInput.ts'
 import { secondaryButtonClassName } from '../buttonStyles.ts'
 import FormError from '../FormError.tsx'
 import SelectField from '../SelectField.tsx'
 import SubmitButton from '../SubmitButton.tsx'
 import TextAreaField from '../TextAreaField.tsx'
 import TextField from '../TextField.tsx'
-
-const PRICE_PATTERN = /^\d+(\.\d{1,2})?$/
-const WHOLE_NUMBER_PATTERN = /^\d+$/
 
 /** Form state. Numbers stay as text while the user is typing them. */
 type FarmEventFormValues = {

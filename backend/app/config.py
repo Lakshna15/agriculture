@@ -8,11 +8,18 @@ from sqlalchemy.engine import URL
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
+# Every placeholder in .env.example starts with this.
+PLACEHOLDER_SECRET_PREFIX = "change_me"
+
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables and the root .env file."""
 
-    model_config = SettingsConfigDict(env_file=PROJECT_ROOT / ".env", extra="ignore")
+    # Errors name the setting but never print its value, so a rejected
+    # signing key or password does not end up in startup logs.
+    model_config = SettingsConfigDict(
+        env_file=PROJECT_ROOT / ".env", extra="ignore", hide_input_in_errors=True
+    )
 
     postgres_user: str
     postgres_password: str
@@ -27,6 +34,15 @@ class Settings(BaseSettings):
     # Calendar dates such as a pickup day or an event day belong to the place
     # the marketplace serves, not to the server's clock, which runs in UTC.
     marketplace_timezone: str = "America/New_York"
+
+    @field_validator("jwt_secret_key")
+    @classmethod
+    def secret_is_not_the_example_placeholder(cls, secret: SecretStr) -> SecretStr:
+        # The value in .env.example is public. Anyone who knows it could sign
+        # tokens for any account, so the backend refuses to start with it.
+        if secret.get_secret_value().lower().startswith(PLACEHOLDER_SECRET_PREFIX):
+            raise ValueError("replace the example JWT_SECRET_KEY with a random value of your own")
+        return secret
 
     @field_validator("marketplace_timezone")
     @classmethod

@@ -1,0 +1,26 @@
+version: 2
+
+sources:
+  - name: raw
+    description: >
+      Snapshots of the application database written by ingestion/extract.py and
+      checked by ingestion/validate.py. Each table is one Parquet file per
+      snapshot date; the build reads the snapshot named by var('snapshot_date').
+    config:
+      meta:
+        external_location: "{{ env_var('RAW_DATA_URI') }}/{name}/snapshot_date={{ var('snapshot_date') }}/{name}.parquet"
+    tables:
+      - name: application_events
+        description: Searches, views and marketplace actions recorded by the backend.
+      - name: farms
+        description: Farms, located only by a one-decimal region cell.
+      - name: products
+      - name: inventory_history
+        description: One row per change to a product's stock.
+      - name: product_reservations
+      - name: farm_events
+      - name: event_reservations
+      - name: crop_requests
+        description: Customers' crop requests, located only by a one-decimal region cell.
+      - name: grow_offers
+      - name: crop_commitments

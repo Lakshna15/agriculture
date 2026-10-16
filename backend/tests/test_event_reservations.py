@@ -354,6 +354,16 @@ class TestListEventReservations:
         assert response.json()[0]["customer_name"] == "Ana Grower"
         assert customer.email not in response.text
 
+    def test_farmer_without_a_farm_has_no_event_reservations(
+        self, client: TestClient, db_session: Session
+    ) -> None:
+        new_farmer = create_user(db_session, role=UserRole.FARMER, email="new-farmer@example.com")
+
+        response = client.get(FARM_EVENT_RESERVATIONS_URL, headers=auth_headers(new_farmer))
+
+        assert response.status_code == 200
+        assert response.json() == []
+
     def test_listings_are_restricted_by_role(
         self, client: TestClient, farmer: User, customer: User
     ) -> None:

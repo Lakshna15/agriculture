@@ -37,5 +37,59 @@ services:
       db:
         condition: service_healthy
 
+  # Backend for the browser tests, started only with `--profile e2e`. It has
+  # its own database, recreated empty every time the container starts, so a
+  # test run never reads or changes development data.
+  backend-e2e:
+    profiles: ["e2e"]
+    build: ./backend
+    env_file:
+      - .env
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}_e2e
+    command: >
+      sh -c "python -m scripts.reset_e2e_database
+      && alembic upgrade head
+      && exec uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    ports:
+      - "127.0.0.1:${E2E_BACKEND_PORT:-8001}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  # The analytics pipeline, started only with `--profile pipeline`: Airflow,
+  # the ingestion code and dbt. It reads the application database in
+  # read-only transactions and writes Parquet snapshots and a DuckDB
+  # warehouse under data-pipeline/data. Airflow keeps its own records in a
+  # separate <POSTGRES_DB>_airflow database.
+  pipeline:
+    profiles: ["pipeline"]
+    build: ./data-pipeline
+    # Only what the pipeline needs, so the backend's signing key stays out of it.
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      MARKETPLACE_TIMEZONE: ${MARKETPLACE_TIMEZONE:-America/New_York}
+    ports:
+      - "127.0.0.1:${AIRFLOW_PORT:-8080}:8080"
+    volumes:
+      # Code is mounted so edits apply without a rebuild, and output lands in the project.
+      - ./data-pipeline:/opt/farm2local/data-pipeline
+      - airflow_home:/opt/airflow
+    depends_on:
+      db:
+        condition: service_healthy
+
 volumes:
   postgres_data:
+  airflow_home:

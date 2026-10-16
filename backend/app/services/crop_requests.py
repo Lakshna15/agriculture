@@ -3,11 +3,13 @@ from sqlalchemy import ColumnElement, case, distinct, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.models.application_event import ApplicationEventType
 from app.models.crop_request import CropRequest, CropRequestStatus, RequestFrequency
 from app.models.farm import Farm
 from app.models.grow_offer import CropCommitment, GrowOffer, GrowOfferStatus
 from app.models.user import User
 from app.schemas.crop_request import CropDemand, CropRequestCreate, CropRequestRead
+from app.services.application_events import record_event
 from app.services.geo import METERS_PER_MILE
 
 # A monthly request contributes this share of its quantity to each week.
@@ -79,6 +81,21 @@ def create_crop_request(db: Session, customer: User, details: CropRequestCreate)
     )
     db.add(request)
     try:
+        # Flushing writes the request, and raises for a duplicate, before the event names it.
+        db.flush()
+        record_event(
+            db,
+            ApplicationEventType.CROP_REQUESTED,
+            user_id=customer.id,
+            metadata={
+                "crop_request_id": request.id,
+                "crop_name": request.crop_name,
+                "quantity": request.quantity,
+                "unit": request.unit.value,
+                "frequency": request.frequency.value,
+                "radius_miles": request.radius_miles,
+            },
+        )
         db.commit()
     except IntegrityError as error:
         db.rollback()

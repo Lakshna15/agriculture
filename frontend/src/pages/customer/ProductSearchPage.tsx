@@ -19,7 +19,7 @@ import TextField from '../../components/TextField.tsx'
 import {
   DEFAULT_SEARCH_RADIUS_MILES,
   productCategoryOptions,
-  searchRadiusMilesOptions,
+  searchRadiusOptions,
   searchSortOptions,
 } from '../../data/productOptions.ts'
 import {
@@ -34,11 +34,6 @@ import {
   storeSearchLocation,
   type SearchLocation,
 } from '../../lib/searchLocation.ts'
-
-const radiusOptions = searchRadiusMilesOptions.map((miles) => ({
-  value: String(miles),
-  label: `${miles} miles`,
-}))
 
 type SearchFormValues = {
   query: string
@@ -166,7 +161,7 @@ export default function ProductSearchPage() {
             <SelectField
               label="Radius"
               name="radius_miles"
-              options={radiusOptions}
+              options={searchRadiusOptions}
               value={values.radiusMiles}
               onChange={(event) => setValue('radiusMiles', event.target.value)}
             />

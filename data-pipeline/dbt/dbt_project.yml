@@ -1,0 +1,26 @@
+name: farm2local_analytics
+version: "1.0.0"
+config-version: 2
+profile: farm2local
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+target-path: target
+clean-targets: ["target", "logs"]
+
+flags:
+  send_anonymous_usage_stats: false
+
+# Every model reads the snapshot named by the snapshot_date variable, which
+# the DAG passes as --vars '{"snapshot_date": "YYYY-MM-DD"}'. It has no default
+# on purpose: a build must always say which snapshot it describes.
+
+models:
+  farm2local_analytics:
+    staging:
+      +materialized: view
+    intermediate:
+      +materialized: view
+    marts:
+      +materialized: table

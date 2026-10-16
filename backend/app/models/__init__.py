@@ -1,3 +1,4 @@
+from app.models.application_event import ApplicationEvent, ApplicationEventType
 from app.models.base import Base
 from app.models.crop_poll import CropPoll, CropPollOption, CropPollStatus, CropVote
 from app.models.crop_request import CropRequest, CropRequestStatus, RequestFrequency, Season
@@ -11,6 +12,8 @@ from app.models.reservation import ProductReservation, ReservationStatus
 from app.models.user import User, UserRole
 
 __all__ = [
+    "ApplicationEvent",
+    "ApplicationEventType",
     "Base",
     "CropCommitment",
     "CropPoll",

@@ -3,12 +3,12 @@ import { describeApiError } from '../../api/errors.ts'
 import { reserveProduct, type ProductReservation } from '../../api/reservations.ts'
 import { useAccessToken } from '../../auth/useAuth.ts'
 import { todayAsIsoDate } from '../../lib/format.ts'
+import { WHOLE_NUMBER_PATTERN } from '../../lib/numberInput.ts'
 import { secondaryButtonClassName } from '../buttonStyles.ts'
 import FormError from '../FormError.tsx'
 import SubmitButton from '../SubmitButton.tsx'
 import TextField from '../TextField.tsx'
 
-const WHOLE_NUMBER_PATTERN = /^\d+$/
 const DEFAULT_PICKUP_TIME = '10:00'
 
 type ReserveProductFormProps = {

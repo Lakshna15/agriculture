@@ -1,0 +1,10 @@
+version: 2
+
+models:
+  - name: int_open_crop_requests
+    description: Open crop requests, each marked with whether a grow offer already covers it.
+    columns:
+      - name: crop_request_id
+        data_tests: [unique, not_null]
+      - name: is_covered_by_grow_offer
+        data_tests: [not_null]

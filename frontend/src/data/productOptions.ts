@@ -30,8 +30,14 @@ function toOptions<Value extends string>(labels: Record<Value, string>) {
 export const productCategoryOptions = toOptions(productCategoryLabels)
 export const productUnitOptions = toOptions(productUnitLabels)
 
-export const searchRadiusMilesOptions = [5, 10, 25, 50, 100]
+const SEARCH_RADIUS_MILES = [5, 10, 25, 50, 100]
 export const DEFAULT_SEARCH_RADIUS_MILES = 25
+
+/** The distances a customer can search within, as options for a select field. */
+export const searchRadiusOptions = SEARCH_RADIUS_MILES.map((miles) => ({
+  value: String(miles),
+  label: `${miles} miles`,
+}))
 
 export const searchSortOptions: { value: ProductSearchSort; label: string }[] = [
   { value: 'distance', label: 'Nearest first' },

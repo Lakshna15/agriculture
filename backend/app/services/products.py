@@ -1,9 +1,12 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.models.application_event import ApplicationEventType
 from app.models.farm import Farm
 from app.models.product import InventoryHistory, Product
+from app.models.user import User
 from app.schemas.product import ProductCreate, ProductUpdate
+from app.services.application_events import record_event
 
 
 def get_product(db: Session, product_id: int) -> Product | None:
@@ -77,11 +80,23 @@ def update_product(db: Session, product: Product, product_details: ProductUpdate
     return product
 
 
-def update_product_inventory(db: Session, product: Product, new_quantity: int) -> Product:
+def update_product_inventory(
+    db: Session, product: Product, new_quantity: int, farmer: User
+) -> Product:
     # Re-read the row under a lock so that two simultaneous updates each record
     # the quantity that was really there before them.
     lock_product(db, product.id)
-    change_product_quantity(db, product, new_quantity)
+    previous_quantity = product.quantity_available
+    if new_quantity != previous_quantity:
+        change_product_quantity(db, product, new_quantity)
+        record_event(
+            db,
+            ApplicationEventType.INVENTORY_UPDATED,
+            user_id=farmer.id,
+            farm_id=product.farm_id,
+            product_id=product.id,
+            metadata={"previous_quantity": previous_quantity, "new_quantity": new_quantity},
+        )
     db.commit()
     db.refresh(product)
     return product

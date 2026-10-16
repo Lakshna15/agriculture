@@ -4,11 +4,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.sql import Select
 
+from app.models.application_event import ApplicationEventType
 from app.models.farm import Farm
 from app.models.product import Product
 from app.models.reservation import ProductReservation, ReservationStatus
 from app.models.user import User
 from app.schemas.reservation import ProductReservationCreate
+from app.services.application_events import record_event
 from app.services.clock import marketplace_today
 from app.services.products import change_product_quantity, lock_product
 from app.services.reservation_status import ReservationActor, check_status_change
@@ -121,6 +123,19 @@ def create_product_reservation(
         status=ReservationStatus.PENDING,
     )
     db.add(reservation)
+    db.flush()
+    record_event(
+        db,
+        ApplicationEventType.RESERVATION_CREATED,
+        user_id=customer.id,
+        farm_id=product.farm_id,
+        product_id=product.id,
+        metadata={
+            "reservation_id": reservation.id,
+            "quantity": details.quantity,
+            "pickup_date": details.pickup_date.isoformat(),
+        },
+    )
     db.commit()
     return reservation
 

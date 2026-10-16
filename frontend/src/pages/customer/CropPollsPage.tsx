@@ -16,7 +16,7 @@ import SelectField from '../../components/SelectField.tsx'
 import SubmitButton from '../../components/SubmitButton.tsx'
 import {
   DEFAULT_SEARCH_RADIUS_MILES,
-  searchRadiusMilesOptions,
+  searchRadiusOptions,
 } from '../../data/productOptions.ts'
 import {
   LATITUDE_LIMIT,
@@ -32,11 +32,6 @@ import {
   type SearchLocation,
 } from '../../lib/searchLocation.ts'
 import { useAsyncData } from '../../lib/useAsyncData.ts'
-
-const radiusOptions = searchRadiusMilesOptions.map((miles) => ({
-  value: String(miles),
-  label: `${miles} miles`,
-}))
 
 type SearchState =
   | { status: 'idle' }
@@ -203,7 +198,7 @@ export default function CropPollsPage() {
             <SelectField
               label="Radius"
               name="radius_miles"
-              options={radiusOptions}
+              options={searchRadiusOptions}
               value={radiusMiles}
               onChange={(event) => setRadiusMiles(event.target.value)}
             />

@@ -1,0 +1,163 @@
+version: 2
+
+models:
+  - name: mart_daily_product_demand
+    description: Views and reservations per product per marketplace day.
+    data_tests:
+      - unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [activity_date, product_id]
+    columns:
+      - name: activity_date
+        data_tests: [not_null]
+      - name: product_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('stg_products'), field: product_id}
+      - name: farm_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('stg_farms'), field: farm_id}
+
+  - name: mart_unfulfilled_crop_demand
+    description: >
+      Searches, unmet crop requests and available listings for every crop
+      customers have looked for. Answers which crops are most searched, which
+      find nothing and which have strong demand but little supply.
+    columns:
+      - name: crop_name
+        data_tests: [unique, not_null]
+      - name: listings_available
+        data_tests: [not_null]
+
+  - name: mart_demand_by_region
+    description: Unmet demand and supply per one-decimal region cell.
+    columns:
+      - name: region_id
+        data_tests: [unique, not_null]
+
+  - name: mart_inventory_turnover
+    description: Dollar value sold against average stock value, per farm.
+    columns:
+      - name: farm_id
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments: {to: ref('stg_farms'), field: farm_id}
+      - name: days_observed
+        data_tests: [not_null]
+
+  - name: mart_crop_commitment_conversion
+    description: Whether and how fast each grow offer reached its minimum number of customers.
+    columns:
+      - name: grow_offer_id
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments: {to: ref('stg_grow_offers'), field: grow_offer_id}
+      - name: status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [OPEN, CONFIRMED, GROWING, READY, COMPLETED, CANCELLED]
+      - name: reached_minimum
+        data_tests: [not_null]
+
+  - name: mart_reservations
+    description: Product reservations and farm experience bookings, one row each.
+    columns:
+      - name: reservation_key
+        data_tests: [unique, not_null]
+      - name: reservation_type
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [PRODUCT, EVENT]
+      - name: status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [PENDING, CONFIRMED, COMPLETED, CANCELLED]
+      - name: farm_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('stg_farms'), field: farm_id}
+
+unit_tests:
+  - name: inventory_turnover_rebuilds_daily_stock_and_ignores_cancellations
+    description: >
+      Ten units at $2 on the first day, six left after a four-unit sale on the
+      second, unchanged on the third: average stock $14.67 over three days,
+      $8 sold, so the stock turns 0.5455 times and lasts 5.5 days.
+    model: mart_inventory_turnover
+    overrides:
+      vars:
+        snapshot_date: "2026-10-03"
+    given:
+      - input: ref('stg_inventory')
+        rows:
+          - {inventory_change_id: 1, product_id: 10, new_quantity: 12, change_date: "2026-10-01"}
+          - {inventory_change_id: 2, product_id: 10, new_quantity: 10, change_date: "2026-10-01"}
+          - {inventory_change_id: 3, product_id: 10, new_quantity: 6, change_date: "2026-10-02"}
+      - input: ref('stg_products')
+        rows:
+          - {product_id: 10, farm_id: 1, price: 2.00}
+      - input: ref('stg_product_reservations')
+        rows:
+          - {reservation_id: 100, product_id: 10, quantity: 4, status: CONFIRMED}
+          - {reservation_id: 101, product_id: 10, quantity: 2, status: CANCELLED}
+      - input: ref('stg_farms')
+        rows:
+          - {farm_id: 1, farm_name: Green Acres}
+    expect:
+      rows:
+        - farm_id: 1
+          days_observed: 3
+          average_stock_value: 14.67
+          units_sold: 4
+          sold_value: 8.00
+          inventory_turnover: 0.5455
+          days_of_inventory: 5.5
+
+  - name: commitment_conversion_finds_the_commitment_that_reached_the_minimum
+    model: mart_crop_commitment_conversion
+    given:
+      - input: ref('stg_grow_offers')
+        rows:
+          - {grow_offer_id: 1, crop_name: Okra, status: CONFIRMED, minimum_customers: 2, expected_quantity: 100, created_at: "2026-10-01 10:00:00+00"}
+          - {grow_offer_id: 2, crop_name: Kale, status: OPEN, minimum_customers: 3, expected_quantity: 50, created_at: "2026-10-02 00:00:00+00"}
+      - input: ref('stg_crop_commitments')
+        rows:
+          - {crop_commitment_id: 1, grow_offer_id: 1, customer_id: 7, quantity: 10, created_at: "2026-10-01 22:00:00+00"}
+          - {crop_commitment_id: 2, grow_offer_id: 1, customer_id: 8, quantity: 5, created_at: "2026-10-03 10:00:00+00"}
+          - {crop_commitment_id: 3, grow_offer_id: 2, customer_id: 7, quantity: 4, created_at: "2026-10-03 11:00:00+00"}
+      - input: ref('stg_crop_requests')
+        rows:
+          # Asked for okra before committing to the okra offer: counts.
+          - {crop_request_id: 1, customer_id: 8, crop_name: Okra, created_at: "2026-09-30 12:00:00+00"}
+          # Asked for kale only after committing to the kale offer: does not.
+          - {crop_request_id: 2, customer_id: 7, crop_name: Kale, created_at: "2026-10-04 09:00:00+00"}
+    expect:
+      rows:
+        - grow_offer_id: 1
+          committed_customers: 2
+          committed_quantity: 15
+          reached_minimum: true
+          minimum_reached_at: "2026-10-03 10:00:00+00"
+          days_to_reach_minimum: 2.0
+          share_of_harvest_committed: 0.15
+          customers_who_requested_first: 1
+        - grow_offer_id: 2
+          committed_customers: 1
+          committed_quantity: 4
+          reached_minimum: false
+          minimum_reached_at: null
+          days_to_reach_minimum: null
+          share_of_harvest_committed: 0.08
+          customers_who_requested_first: 0

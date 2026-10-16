@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { describeApiError } from '../../api/errors.ts'
 import type { Product, ProductCategory, ProductDetails, ProductUnit } from '../../api/products.ts'
 import { productCategoryOptions, productUnitOptions } from '../../data/productOptions.ts'
+import { PRICE_PATTERN, WHOLE_NUMBER_PATTERN } from '../../lib/numberInput.ts'
 import { secondaryButtonClassName } from '../buttonStyles.ts'
 import CheckboxField from '../CheckboxField.tsx'
 import FormError from '../FormError.tsx'
@@ -9,9 +10,6 @@ import SelectField from '../SelectField.tsx'
 import SubmitButton from '../SubmitButton.tsx'
 import TextAreaField from '../TextAreaField.tsx'
 import TextField from '../TextField.tsx'
-
-const PRICE_PATTERN = /^\d+(\.\d{1,2})?$/
-const WHOLE_NUMBER_PATTERN = /^\d+$/
 
 /** Form state. Numbers stay as text while the user is typing them. */
 type ProductFormValues = {

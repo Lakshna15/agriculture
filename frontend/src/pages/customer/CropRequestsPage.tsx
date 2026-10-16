@@ -28,7 +28,7 @@ import {
   DEFAULT_SEARCH_RADIUS_MILES,
   productUnitLabels,
   productUnitOptions,
-  searchRadiusMilesOptions,
+  searchRadiusOptions,
 } from '../../data/productOptions.ts'
 import {
   LATITUDE_LIMIT,
@@ -37,19 +37,13 @@ import {
   longitudeErrorMessage,
   parseCoordinate,
 } from '../../lib/coordinates.ts'
+import { WHOLE_NUMBER_PATTERN } from '../../lib/numberInput.ts'
 import {
   readSearchLocation,
   storeSearchLocation,
   type SearchLocation,
 } from '../../lib/searchLocation.ts'
 import { useAsyncData } from '../../lib/useAsyncData.ts'
-
-const WHOLE_NUMBER_PATTERN = /^\d+$/
-
-const radiusOptions = searchRadiusMilesOptions.map((miles) => ({
-  value: String(miles),
-  label: `${miles} miles`,
-}))
 
 type CropRequestFormValues = {
   cropName: string
@@ -251,7 +245,7 @@ export default function CropRequestsPage() {
             <SelectField
               label="How far you would travel"
               name="radius_miles"
-              options={radiusOptions}
+              options={searchRadiusOptions}
               value={values.radiusMiles}
               onChange={(event) => setValue('radiusMiles', event.target.value)}
             />

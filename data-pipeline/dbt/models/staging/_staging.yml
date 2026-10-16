@@ -1,0 +1,251 @@
+version: 2
+
+# Data quality rules for the raw data. Primary keys must be unique and
+# present, required columns filled, enum columns limited to the values the
+# application allows, and every reference must point at a row that exists.
+
+models:
+  - name: stg_events
+    description: Application events with their metadata unpacked.
+    columns:
+      - name: event_id
+        data_tests: [unique, not_null]
+      - name: event_type
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - SEARCH_PERFORMED
+                  - NO_SEARCH_RESULT
+                  - PRODUCT_VIEWED
+                  - FARM_VIEWED
+                  - CROP_REQUESTED
+                  - GROW_OFFER_CREATED
+                  - CROP_COMMITTED
+                  - RESERVATION_CREATED
+                  - INVENTORY_UPDATED
+                  - FARM_EVENT_BOOKED
+      - name: created_at
+        data_tests: [not_null]
+      - name: farm_id
+        data_tests:
+          - relationships:
+              arguments: {to: ref('stg_farms'), field: farm_id}
+      - name: product_id
+        data_tests:
+          - relationships:
+              arguments: {to: ref('stg_products'), field: product_id}
+      - name: reservation_id
+        data_tests:
+          - relationships:
+              arguments: {to: ref('stg_product_reservations'), field: reservation_id}
+      - name: event_reservation_id
+        data_tests:
+          - relationships:
+              arguments: {to: ref('stg_event_reservations'), field: event_reservation_id}
+      - name: crop_request_id
+        data_tests:
+          - relationships:
+              arguments: {to: ref('stg_crop_requests'), field: crop_request_id}
+      - name: grow_offer_id
+        data_tests:
+          - relationships:
+              arguments: {to: ref('stg_grow_offers'), field: grow_offer_id}
+      - name: crop_commitment_id
+        data_tests:
+          - relationships:
+              arguments: {to: ref('stg_crop_commitments'), field: crop_commitment_id}
+
+  - name: stg_farms
+    columns:
+      - name: farm_id
+        data_tests: [unique, not_null]
+      - name: farmer_id
+        data_tests: [unique, not_null]
+      - name: farm_name
+        data_tests: [not_null]
+      - name: region_latitude
+        data_tests: [not_null]
+      - name: region_longitude
+        data_tests: [not_null]
+
+  - name: stg_products
+    columns:
+      - name: product_id
+        data_tests: [unique, not_null]
+      - name: farm_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('stg_farms'), field: farm_id}
+      - name: product_name
+        data_tests: [not_null]
+      - name: category
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [VEGETABLES, FRUITS, EGGS, DAIRY, MEAT, HERBS, SEASONAL, OTHER]
+      - name: unit
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: &units [LB, OZ, EACH, DOZEN, BUNCH, PINT, QUART, GALLON]
+      - name: price
+        data_tests: [not_null]
+      - name: quantity_available
+        data_tests: [not_null]
+
+  - name: stg_inventory
+    columns:
+      - name: inventory_change_id
+        data_tests: [unique, not_null]
+      - name: product_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('stg_products'), field: product_id}
+      - name: previous_quantity
+        data_tests: [not_null]
+      - name: new_quantity
+        data_tests: [not_null]
+      - name: changed_at
+        data_tests: [not_null]
+
+  - name: stg_product_reservations
+    columns:
+      - name: reservation_id
+        data_tests: [unique, not_null]
+      - name: customer_id
+        data_tests: [not_null]
+      - name: product_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('stg_products'), field: product_id}
+      - name: quantity
+        data_tests: [not_null]
+      - name: status
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: &reservation_statuses [PENDING, CONFIRMED, COMPLETED, CANCELLED]
+
+  - name: stg_farm_events
+    columns:
+      - name: farm_event_id
+        data_tests: [unique, not_null]
+      - name: farm_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('stg_farms'), field: farm_id}
+      - name: event_type
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  [STRAWBERRY_PICKING, APPLE_PICKING, PUMPKIN_PICKING, VEGETABLE_PICKING, FARM_TOUR, OTHER]
+
+  - name: stg_event_reservations
+    columns:
+      - name: event_reservation_id
+        data_tests: [unique, not_null]
+      - name: farm_event_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('stg_farm_events'), field: farm_event_id}
+      - name: party_size
+        data_tests: [not_null]
+      - name: status
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: *reservation_statuses
+
+  - name: stg_crop_requests
+    columns:
+      - name: crop_request_id
+        data_tests: [unique, not_null]
+      - name: customer_id
+        data_tests: [not_null]
+      - name: crop_name
+        data_tests: [not_null]
+      - name: unit
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: *units
+      - name: frequency
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [ONE_TIME, WEEKLY, MONTHLY]
+      - name: preferred_season
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [SPRING, SUMMER, FALL, WINTER]
+      - name: status
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [OPEN, CANCELLED]
+      - name: region_latitude
+        data_tests: [not_null]
+      - name: region_longitude
+        data_tests: [not_null]
+
+  - name: stg_grow_offers
+    columns:
+      - name: grow_offer_id
+        data_tests: [unique, not_null]
+      - name: farm_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('stg_farms'), field: farm_id}
+      - name: crop_name
+        data_tests: [not_null]
+      - name: unit
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: *units
+      - name: minimum_customers
+        data_tests: [not_null]
+      - name: status
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: &grow_offer_statuses [OPEN, CONFIRMED, GROWING, READY, COMPLETED, CANCELLED]
+
+  - name: stg_crop_commitments
+    data_tests:
+      # The application allows one commitment per customer per offer.
+      - unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [grow_offer_id, customer_id]
+    columns:
+      - name: crop_commitment_id
+        data_tests: [unique, not_null]
+      - name: grow_offer_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('stg_grow_offers'), field: grow_offer_id}
+      - name: customer_id
+        data_tests: [not_null]
+      - name: quantity
+        data_tests: [not_null]

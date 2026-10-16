@@ -2,11 +2,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.sql import Select
 
+from app.models.application_event import ApplicationEventType
 from app.models.event import EventReservation, FarmEvent
 from app.models.farm import Farm
 from app.models.reservation import ReservationStatus
 from app.models.user import User
 from app.schemas.event import EventReservationCreate
+from app.services.application_events import record_event
 from app.services.clock import marketplace_today
 from app.services.events import count_reserved_spots, lock_event
 from app.services.reservation_status import ReservationActor, check_status_change
@@ -84,6 +86,19 @@ def create_event_reservation(
         status=ReservationStatus.PENDING,
     )
     db.add(reservation)
+    db.flush()
+    record_event(
+        db,
+        ApplicationEventType.FARM_EVENT_BOOKED,
+        user_id=customer.id,
+        farm_id=event.farm_id,
+        metadata={
+            "event_reservation_id": reservation.id,
+            "farm_event_id": event.id,
+            "event_type": event.event_type.value,
+            "party_size": details.party_size,
+        },
+    )
     db.commit()
     return reservation
 

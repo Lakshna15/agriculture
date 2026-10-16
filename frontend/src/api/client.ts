@@ -29,7 +29,8 @@ type ApiRequestOptions = {
 type ValidationIssue = { loc?: unknown[]; msg?: string }
 
 function describeValidationIssue(issue: ValidationIssue): string {
-  const field = issue.loc?.at(-1)
+  // A location of just ["body"] or ["query"] names where the problem is, not a field.
+  const field = issue.loc && issue.loc.length > 1 ? issue.loc.at(-1) : undefined
   const message = issue.msg ?? 'Invalid value'
   return typeof field === 'string' ? `${field}: ${message}` : message
 }

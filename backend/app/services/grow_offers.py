@@ -3,6 +3,7 @@ from sqlalchemy import Subquery, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
+from app.models.application_event import ApplicationEventType
 from app.models.farm import Farm
 from app.models.grow_offer import CropCommitment, GrowOffer, GrowOfferStatus
 from app.models.notification import NotificationType
@@ -17,6 +18,7 @@ from app.schemas.grow_offer import (
     GrowOfferSearchParams,
     GrowOfferSearchResult,
 )
+from app.services.application_events import record_event
 from app.services.clock import marketplace_today
 from app.services.geo import geography_point, meters_to_miles, miles_to_meters
 from app.services.notifications import (
@@ -111,6 +113,20 @@ def create_grow_offer(db: Session, farm: Farm, details: GrowOfferCreate) -> Grow
     # session and every offer starts open.
     offer = GrowOffer(farm_id=farm.id, status=GrowOfferStatus.OPEN, **details.model_dump())
     db.add(offer)
+    db.flush()
+    record_event(
+        db,
+        ApplicationEventType.GROW_OFFER_CREATED,
+        user_id=farm.owner_id,
+        farm_id=farm.id,
+        metadata={
+            "grow_offer_id": offer.id,
+            "crop_name": offer.crop_name,
+            "expected_quantity": offer.expected_quantity,
+            "unit": offer.unit.value,
+            "minimum_customers": offer.minimum_customers,
+        },
+    )
     db.commit()
     return GrowOfferRead.from_offer(offer, committed_customers=0, committed_quantity=0)
 
@@ -245,14 +261,31 @@ def commit_to_grow_offer(
     committed_quantity += details.quantity
 
     try:
-        if offer.status is GrowOfferStatus.OPEN and committed_customers >= offer.minimum_customers:
+        # Flushing first writes the new commitment, so the customer whose
+        # commitment confirms the offer is notified along with the rest and
+        # the commitment has an id for its event.
+        db.flush()
+        confirms_offer = (
+            offer.status is GrowOfferStatus.OPEN and committed_customers >= offer.minimum_customers
+        )
+        if confirms_offer:
             offer.status = GrowOfferStatus.CONFIRMED
-            # Flushing first writes the new commitment, so the customer whose
-            # commitment confirmed the offer is notified along with the rest.
-            db.flush()
             notify_committed_customers(
                 db, offer, NotificationType.GROW_OFFER_CONFIRMED, confirmed_message(offer)
             )
+        record_event(
+            db,
+            ApplicationEventType.CROP_COMMITTED,
+            user_id=customer.id,
+            farm_id=offer.farm_id,
+            metadata={
+                "crop_commitment_id": commitment.id,
+                "grow_offer_id": offer.id,
+                "crop_name": offer.crop_name,
+                "quantity": details.quantity,
+                "confirmed_offer": confirms_offer,
+            },
+        )
         db.commit()
     except IntegrityError as error:
         db.rollback()

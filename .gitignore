@@ -25,8 +25,18 @@ coverage/
 playwright-report/
 test-results/
 
+# Data pipeline output: raw snapshots, the DuckDB warehouse and dbt's build files
+data-pipeline/data/raw/*
+!data-pipeline/data/raw/.gitkeep
+data-pipeline/data/warehouse/*
+!data-pipeline/data/warehouse/.gitkeep
+data-pipeline/dbt/target/
+data-pipeline/dbt/logs/
+data-pipeline/dbt/.user.yml
+
 # Editors and operating systems
 .vscode/
 .idea/
+.claude/
 .DS_Store
 Thumbs.db

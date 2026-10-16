@@ -3,10 +3,9 @@ import { describeApiError } from '../../api/errors.ts'
 import type { Product } from '../../api/products.ts'
 import { productCategoryLabels, productUnitLabels } from '../../data/productOptions.ts'
 import { formatDate, formatPrice } from '../../lib/format.ts'
+import { WHOLE_NUMBER_PATTERN } from '../../lib/numberInput.ts'
 import { secondaryButtonClassName } from '../buttonStyles.ts'
 import { fieldControlClassName } from '../fieldStyles.ts'
-
-const WHOLE_NUMBER_PATTERN = /^\d+$/
 
 function describeAvailability(product: Product): string | null {
   if (product.available_from && product.available_until) {

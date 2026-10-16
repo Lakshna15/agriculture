@@ -9,13 +9,12 @@ import { useAccessToken } from '../../auth/useAuth.ts'
 import { growOfferStatusBadgeClassNames, growOfferStatusLabels } from '../../data/growOptions.ts'
 import { productUnitLabels } from '../../data/productOptions.ts'
 import { formatDate, formatDistance, formatPrice } from '../../lib/format.ts'
+import { WHOLE_NUMBER_PATTERN } from '../../lib/numberInput.ts'
 import { primaryButtonClassName, secondaryButtonClassName } from '../buttonStyles.ts'
 import FormError from '../FormError.tsx'
 import SubmitButton from '../SubmitButton.tsx'
 import TextField from '../TextField.tsx'
 import CommitmentProgress from './CommitmentProgress.tsx'
-
-const WHOLE_NUMBER_PATTERN = /^\d+$/
 
 type GrowOfferCardProps = {
   result: GrowOfferSearchResult

@@ -5,12 +5,11 @@ import { reserveEvent, type EventReservation, type EventSearchResult } from '../
 import { useAccessToken } from '../../auth/useAuth.ts'
 import { farmEventTypeLabels } from '../../data/eventOptions.ts'
 import { formatDate, formatDistance, formatPriceOrFree, formatTime } from '../../lib/format.ts'
+import { WHOLE_NUMBER_PATTERN } from '../../lib/numberInput.ts'
 import { primaryButtonClassName, secondaryButtonClassName } from '../buttonStyles.ts'
 import FormError from '../FormError.tsx'
 import SubmitButton from '../SubmitButton.tsx'
 import TextField from '../TextField.tsx'
-
-const WHOLE_NUMBER_PATTERN = /^\d+$/
 
 type EventSearchResultCardProps = {
   result: EventSearchResult

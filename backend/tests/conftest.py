@@ -12,6 +12,7 @@ from app.config import get_settings
 from app.database import get_db
 from app.main import app
 from app.models import Base
+from app.services.login_throttle import login_throttle
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
@@ -75,6 +76,14 @@ def committing_session_factory(test_engine: Engine) -> Iterator[sessionmaker[Ses
     table_names = ", ".join(table.name for table in Base.metadata.sorted_tables)
     with test_engine.begin() as connection:
         connection.execute(text(f"TRUNCATE {table_names} RESTART IDENTITY CASCADE"))
+
+
+@pytest.fixture(autouse=True)
+def reset_login_throttle() -> Iterator[None]:
+    """Failed logins counted in one test must not lock accounts in the next."""
+    login_throttle.clear()
+    yield
+    login_throttle.clear()
 
 
 @pytest.fixture

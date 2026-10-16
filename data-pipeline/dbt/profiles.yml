@@ -1,0 +1,9 @@
+farm2local:
+  target: local
+  outputs:
+    local:
+      # A DuckDB file kept apart from the application's PostgreSQL database,
+      # so analytical queries never compete with the marketplace for it.
+      type: duckdb
+      path: "{{ env_var('DUCKDB_PATH') }}"
+      threads: 4
